@@ -4,6 +4,7 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
+import static org.apache.spark.sql.functions.*;
 
 import it.unimib.disco.abstat.distributed.minimalization.Minimalize;
 import it.unimib.disco.abstat.distributed.minimalization.Triple;
@@ -14,7 +15,7 @@ public class Summarization {
 
 	public static void main(String[] args) throws Exception {
 		Summarization s = new Summarization();
-		s.session = SparkSession.builder().appName("Abstat-spark").config("key", "value").master("local").getOrCreate();
+		s.session = SparkSession.builder().appName("ABSTAT-spark").config("key", "value").master("local").getOrCreate();
 		JavaRDD<String> input = s.session.read().textFile(args[0]).javaRDD();
 
 		Splitter splitter = new Splitter();
@@ -47,13 +48,13 @@ public class Summarization {
 				   ).createOrReplaceTempView("typing_triples");	
 		
 		/* isolate object relation asserts */
-		session.sql("SELECT DISTINCT subject, predicate, object " + 
+		session.sql("SELECT  subject, predicate, object " + 
 					"FROM dataset "  + 
 					"WHERE type = 'object_relational'" 
 				   ).createOrReplaceTempView("object_triples");
 		
 		/* isolate datatype relation asserts */
-		session.sql("SELECT DISTINCT subject, predicate, object, " +                     
+		session.sql("SELECT  subject, predicate, object, " +                     
 					"   CASE" + 
 					"      WHEN datatype IS NULL THEN 'http://www.w3.org/2000/01/rdf-schema#Literal' " + 
 					"      ELSE datatype " + 
