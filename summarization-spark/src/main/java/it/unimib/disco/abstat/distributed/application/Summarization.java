@@ -12,18 +12,28 @@ import it.unimib.disco.abstat.distributed.minimalization.Triple;
 public class Summarization {
 	
 	private SparkSession session;
+	private String dataset_file;
+	private String ontology_file;
+	private String output_dir;
 
+	public Summarization(String master, String dataset, String ontology, String output_dir) {
+		session = SparkSession.builder().appName("ABSTAT-spark").master(master).getOrCreate();
+		this.dataset_file = dataset;
+		this.ontology_file = ontology;
+		this.output_dir = output_dir;
+	}
+	
+	
 	public static void main(String[] args) throws Exception {
-		Summarization s = new Summarization();
-		s.session = SparkSession.builder().appName("ABSTAT-spark").master(args[0]).getOrCreate();
-		JavaRDD<String> input = s.session.read().textFile(args[1]).javaRDD();
-
+		Summarization s = new Summarization(args[0], args[1], args[2], args[3]);
+		
+		JavaRDD<String> input = s.session.read().textFile(s.dataset_file).javaRDD();
 		Splitter splitter = new Splitter();
 		JavaRDD<Triple> rdd = splitter.calculate(input);
 		Dataset<Row> data = s.session.createDataFrame(rdd, Triple.class);
 		data.createOrReplaceTempView("dataset");
 
-		Minimalize minimalize = new Minimalize(args[2]);
+		Minimalize minimalize = new Minimalize(s.ontology_file);
 		s.session.udf().register("minimalize", minimalize);
 		
 		s.split();
@@ -68,21 +78,21 @@ public class Summarization {
 
 	public void countConcepts() {
 		session.sql("SELECT minimalType, COUNT(*) AS freq FROM mTypes_dataset GROUP BY minimalType")
-		.write().option("sep", ";").csv("/home/renzo/Desktop/spark-out/spark-concepts");
+		.write().option("sep", ";").csv(output_dir + "/spark-concepts");
 	}
 	
 	
 	public void countDatatypes() {
 		session.sql("SELECT datatype, COUNT(*) AS freq FROM dt_triples GROUP BY datatype")
-		.write().option("sep", ";").csv("/home/renzo/Desktop/spark-out/spark-datatypes");
+		.write().option("sep", ";").csv(output_dir + "/spark-datatypes");
 	}
 	
 	
 	public void countProperties() {
 		session.sql("SELECT predicate, COUNT(*) AS freq FROM dt_triples GROUP BY predicate")
-		.write().option("sep", ";").csv("/home/renzo/Desktop/spark-out/spark-datatype-properties");
+		.write().option("sep", ";").csv(output_dir + "/spark-datatype-properties");
 		session.sql("SELECT predicate, COUNT(*) AS freq FROM object_triples GROUP BY predicate")
-		.write().option("sep", ";").csv("/home/renzo/Desktop/spark-out/spark-object-properties");
+		.write().option("sep", ";").csv(output_dir + "/spark-object-properties");
 	}
 	
 	
@@ -119,7 +129,7 @@ public class Summarization {
 		session.sql("SELECT subj_Type, predicate, obj_Type, COUNT(*) AS freq  " +
 					"FROM datatype_akp " + 
 					"GROUP BY subj_Type, predicate, obj_Type "
-					).write().option("sep", ";").csv("/home/renzo/Desktop/spark-out/spark-datatype-akp");
+					).write().option("sep", ";").csv(output_dir + "/spark-datatype-akp");
 	}
 	
 	
@@ -155,7 +165,7 @@ public class Summarization {
 		session.sql("SELECT subj_Type, predicate, obj_Type, COUNT(*) AS freq  " +
 					"FROM object_akp " + 
 					"GROUP BY subj_Type, predicate, obj_Type "
-					).write().option("sep", ";").csv("/home/renzo/Desktop/spark-out/spark-object-akp");
+					).write().option("sep", ";").csv(output_dir + "/spark-object-akp");
 	}
 	
 
@@ -186,7 +196,7 @@ public class Summarization {
 		.createOrReplaceTempView("object_cardinalities1");
 		
 		session.sql("SELECT c1.AKP, c1.max, c1.avg, c1.min, c2.max AS max2, c2.avg AS avg2, c2.min AS min2 from object_cardinalities1 c1 JOIN object_cardinalities2 c2 ON c1.AKP = c2.AKP")
-		.write().option("sep", ";").csv("/home/renzo/Desktop/spark-out/spark-object-cardinalities");
+		.write().option("sep", ";").csv(output_dir + "/spark-object-cardinalities");
 		
 	}	
 
