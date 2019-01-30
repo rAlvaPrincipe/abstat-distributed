@@ -15,15 +15,15 @@ public class Summarization {
 
 	public static void main(String[] args) throws Exception {
 		Summarization s = new Summarization();
-		s.session = SparkSession.builder().appName("ABSTAT-spark").config("key", "value").master("local").getOrCreate();
-		JavaRDD<String> input = s.session.read().textFile(args[0]).javaRDD();
+		s.session = SparkSession.builder().appName("ABSTAT-spark").master(args[0]).getOrCreate();
+		JavaRDD<String> input = s.session.read().textFile(args[1]).javaRDD();
 
 		Splitter splitter = new Splitter();
 		JavaRDD<Triple> rdd = splitter.calculate(input);
 		Dataset<Row> data = s.session.createDataFrame(rdd, Triple.class);
 		data.createOrReplaceTempView("dataset");
 
-		Minimalize minimalize = new Minimalize(args[1]);
+		Minimalize minimalize = new Minimalize(args[2]);
 		s.session.udf().register("minimalize", minimalize);
 		
 		s.split();
