@@ -55,7 +55,7 @@ public class Summarization {
 		/* isolate typing asserts */
 		session.sql("SELECT subject, object " + 
 					"FROM dataset "  + 
-					"WHERE type = 'typing'" 
+					"WHERE type = 'typing'"
 				   ).createOrReplaceTempView("typing_triples");	
 		
 		/* isolate object relation asserts */
@@ -199,5 +199,94 @@ public class Summarization {
 		.write().option("sep", ";").csv(output_dir + "/spark-object-cardinalities");
 		
 	}	
+	
+	/*-------------------------------------------- FOR DEBUG -----------------------------------------*/
+	
+	
+	public void verifyTypes(String entity) {
+		/* print types */
+		session.sql("SELECT subject, object " + 
+					"FROM dataset "  + 
+					"WHERE type = 'typing' AND subject = \"http://dbpedia.org/resource/Katarina_Kresal\" "
+				   ).show(200,false);
+	}
+	
+	
+	public void verifyMinimalTypes(String entity) {
+		/* minimal types per entity */
+		session.sql("SELECT subject AS entity, minimalize(object) AS minimalTypes " + 
+					"FROM typing_triples " + 
+					"GROUP BY subject"
+					).createOrReplaceTempView("mTypes_dataset");
+		
+		/* print minimal types */
+		session.sql("SELECT entity, explode(minimalTypes) AS minimalType " + 
+					"FROM mTypes_dataset " + 
+					"WHERE entity = \"" + entity +"\" "
+					).show(200,false);
+	}
+	
+	
+	public void verifyDatatypeAKP(String akp) {
+		String[] splitted = akp.split("##");
+		/* calculate minimal types for each subject */
+		session.sql("SELECT subject, " + 
+					"   CASE" + 
+					"      WHEN minimalType IS NULL THEN 'http://www.w3.org/2002/07/owl#Thing' " + 
+					"      ELSE minimalType " + 
+					"   END AS subj_Type, " +
+					"predicate, object, datatype AS obj_Type " +
+					"FROM " + 
+					"   mTypes_dataset " +
+					"   RIGHT OUTER JOIN " + 
+					"      dt_triples " + 
+					"      ON mTypes_dataset.entity = dt_triples.subject "
+					).createOrReplaceTempView("datatype_akp");
+		
+		/* group by AKP and calculate freq */
+		session.sql("SELECT subject, subj_Type, predicate, object, obj_Type  " +
+					"FROM datatype_akp " + 
+					"WHERE subj_Type = \"" + splitted[0] + "\" AND predicate = \"" + splitted[1] + "\" AND obj_Type = \"" + splitted[2] + "\" "
+					).show(200, false);
+	}
+	
+	
+	public void verifyObjectAkp(String akp) {
+		String[] splitted = akp.split("##");
+		
+		/* calculate minimal types for each subject */
+		session.sql("SELECT subject, " + 
+					"   CASE" + 
+					"      WHEN minimalType IS NULL THEN 'http://www.w3.org/2002/07/owl#Thing' " + 
+					"      ELSE minimalType " + 
+					"   END AS subj_Type, " +
+					"predicate, object " + 
+					"FROM " + 
+					"   mTypes_dataset " +
+					"   RIGHT OUTER JOIN " + 
+					"      object_triples " + 
+					"      ON mTypes_dataset.entity = object_triples.subject "
+					).createOrReplaceTempView("object_akp");
+			
+		/* calculate minimal types for each object */
+		session.sql("SELECT subject, subj_Type, predicate, " + 
+					"   CASE" + 
+					"      WHEN minimalType IS NULL THEN 'http://www.w3.org/2002/07/owl#Thing' " + 
+					"      ELSE minimalType " + 
+					"   END AS obj_Type, object " +
+					"FROM " + 
+					"   mTypes_dataset " +
+					"   RIGHT OUTER JOIN " + 
+					"      object_akp " + 
+					"      ON mTypes_dataset.entity = object_akp.object "
+				).createOrReplaceTempView("object_akp");
+		
+		/* group by AKP and calculate freq */
+		session.sql("SELECT subject, subj_Type, predicate, obj_Type, object  " +
+					"FROM object_akp " + 
+					"WHERE subj_Type = \"" + splitted[0] + "\" AND predicate = \"" + splitted[1] + "\" AND obj_Type = \"" + splitted[2] + "\" " 
+					).show(200, false);
+	}
+	
 
 }
