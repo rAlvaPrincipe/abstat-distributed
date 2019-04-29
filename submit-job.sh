@@ -1,0 +1,17 @@
+jar=""
+master=""
+mode=""
+files=""
+dataset=""
+ontology=""
+output=""
+echo "jar: $jar"
+echo "master: $master"
+echo "mode: $mode"
+echo "files: $files"
+echo "dataset: $dataset"
+echo "ontology: $ontology"
+echo "output: $output"
+
+cmd="spark2-submit --class it.unimib.disco.abstat.distributed.application.Summarization --master yarn --deploy-mode  cluster --files $files $jar yarn-cluster  $dataset $ontology  $output"
+eval $cmd
