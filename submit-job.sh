@@ -8,11 +8,11 @@ ontology=$2
 output=$3
 jar="$root/summarization-spark/target/abstat-spark-0.0.1-SNAPSHOT.jar"
 ont_name=$(echo $ontology | sed 's/.*\///')
-echo $jar
+echo "jar: $jar"
 echo "files: $ontology"
 echo "dataset: $dataset"
 echo "output: $output"
 
-cmd="spark2-submit --class it.unimib.disco.abstat.distributed.application.Summarization --master yarn --deploy-mode cluster --files $files $jar yarn-cluster  $dataset $ont_name $output"
+cmd="spark2-submit --class it.unimib.disco.abstat.distributed.application.Summarization --master yarn --deploy-mode cluster --files $ontology $jar yarn-cluster $dataset $ont_name $output"
 eval $cmd
 
