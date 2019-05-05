@@ -68,7 +68,7 @@ public class SummarizatorAPI {
 		String datasetName =  datasetService.findDatasetById(config.getDsId()).getName();
 		String ontName = ontologyService.findOntologyById(config.getListOntId().get(0)).getName();
 		
-		String summary_dir = "../data/summaries/" + datasetName + "_" + ontName + "_" + minTp + propMin + card + inf +"/";
+		String summary_dir = "hdfs:////user/ralvaprincipe/abstat/summaries/" + datasetName + "_" + ontName + "_" + minTp + propMin + card + inf +"/";
 		
 		//add new attributes to config
 		ArrayList<String> ontlogiesListName = new ArrayList<String>();

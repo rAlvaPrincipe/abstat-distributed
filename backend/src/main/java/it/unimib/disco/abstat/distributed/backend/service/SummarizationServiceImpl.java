@@ -1,21 +1,9 @@
 package it.unimib.disco.abstat.distributed.backend.service;
 
-import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
-
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileReader;
 import java.io.InputStreamReader;
-import java.io.LineNumberReader;
-import java.io.PrintWriter;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.Duration;
-import java.time.Instant;
 
-import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -23,14 +11,13 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import it.unimib.disco.abstat.distributed.backend.model.Dataset;
+import it.unimib.disco.abstat.distributed.backend.model.Ontology;
 import it.unimib.disco.abstat.distributed.backend.model.SubmitConfig;
-
 
 
 @Service
 public class SummarizationServiceImpl implements SummarizationService {
 
-	private static final int nCores = Runtime.getRuntime().availableProcessors();
 	@Autowired
 	DatasetService datasetService;
 	@Autowired
@@ -49,23 +36,17 @@ public class SummarizationServiceImpl implements SummarizationService {
 
 	public void summarize(SubmitConfig subCfg, String email) {
 		try {
-			String dsId = subCfg.getDsId();
-			Dataset dataset = datasetService.findDatasetById(dsId);
-			String datasetName = dataset.getName();
+			Dataset dataset = datasetService.findDatasetById(subCfg.getDsId());
 			String ontId = subCfg.getListOntId().get(0);
 			String ontPath = new File(ontologyService.findOntologyById(ontId).getPath()).getCanonicalPath();
-			String summary_dir = subCfg.getSummaryPath();
 
-			String datasetSupportFileDirectory = summary_dir + "/reports/tmp-data-for-computation/";
-			checkFile(summary_dir);
-			checkFile(datasetSupportFileDirectory);
-
-			//spark algorithm
-			script();
+			//spark job submission
+			sparkSubmit(dataset.getPath(), ontPath, subCfg.getSummaryPath());
 			
 			//save configuration
 			submitConfigService.add(subCfg);
 
+			
 			// mail notification
 			if (email != null && !email.equals("")) {
 				String text = "Dear user, \n\n" + "A summarization job that you have run on ABSTAT is now completed. \n"
@@ -86,14 +67,17 @@ public class SummarizationServiceImpl implements SummarizationService {
 			} else {
 				e.printStackTrace();
 			}
-			
-			
 		}
 	}	
 	
-	private void script() throws Exception {
- 		String[] cmd = {"../submit-job.sh"};
- 		Process p = Runtime.getRuntime().exec(cmd);
+	
+	private void sparkSubmit(String dataset, String ontology, String output_dir) throws Exception {
+ 		String[] cmd = {"/bin/bash","submit-job.sh", dataset, ontology, output_dir};
+ 		ProcessBuilder pb = new ProcessBuilder(cmd);
+ 		pb.redirectErrorStream(true);
+ 		pb.directory(new File(System.getProperty("user.dir")).getParentFile());
+ 		Process p = pb.start();
+ 		
  		BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
  	    String line = "";
  	    while ((line = reader.readLine()) != null)
@@ -101,19 +85,7 @@ public class SummarizationServiceImpl implements SummarizationService {
 	}
 	
 
-	private void checkFile(String path_dir) throws Exception {
-		File dir = new File(path_dir);
-
-		if (dir.exists())
-			FileUtils.deleteDirectory(dir);
-		if (dir.mkdirs())
-			System.out.println("Successfully created:" + dir);
-		else
-			System.out.println("Failed to create: " + dir);
-	}
-
 	public void sendMail(String email, String text, String status) {
-
 		SimpleMailMessage message = new SimpleMailMessage();
 		message.setTo(email);
 		if (status.equals("OK"))
