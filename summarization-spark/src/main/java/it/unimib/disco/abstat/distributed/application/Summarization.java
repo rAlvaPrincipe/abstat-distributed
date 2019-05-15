@@ -44,10 +44,12 @@ public class Summarization {
 		s.countDatatypes();
 		s.countProperties();
 		s.calculateDatatypeAKP();
-		s.session.catalog().dropTempView("dt_triples");
 		s.session.catalog().dropTempView("datatype_akp");
 		s.calculateObjectAKP();	
+		s.calculateDatatypeCardinalities();
+		s.session.catalog().dropTempView("dt_triples");
 		s.calculateObjectCardinalities();
+
 	}
 	
 	
@@ -168,6 +170,32 @@ public class Summarization {
 					).write().option("sep", ";").csv(output_dir + "/spark-object-akp");
 	}
 	
+	
+	public void calculateDatatypeCardinalities() {
+		Dataset<Row> grezzo = session.sql("SELECT " + 
+				"   CASE" + 
+				"      WHEN mts.minimalType IS NULL THEN 'http://www.w3.org/2002/07/owl#Thing' " + 
+				"      ELSE mts.minimalType " + 
+				"   END AS subj_Type, " +
+				"   t.subject, t.predicate, t.object, t.datatype " + 
+				"FROM " + 
+				"   mTypes_dataset mts" +
+				"   RIGHT OUTER JOIN dt_triples t ON mts.entity = t.subject "
+			)
+		.withColumn("AKP", concat(col("subj_Type"), lit("##"),col("predicate"), lit("##"), col("datatype")) );
+		
+		grezzo.groupBy("subject", "AKP").agg(count("subject").alias("count")).
+		groupBy("AKP").agg(max("count").alias("max"), round(avg("count")).cast("integer").alias("avg"), min("count").alias("min"))
+		.createOrReplaceTempView("datatype_cardinalities2");
+		
+		grezzo.groupBy("object", "AKP").agg(count("object").alias("count")).
+		groupBy("AKP").agg(max("count").alias("max"), round(avg("count")).cast("integer").alias("avg"), min("count").alias("min"))
+		.createOrReplaceTempView("datatype_cardinalities1");
+		
+		session.sql("SELECT c1.AKP, c1.max, c1.avg, c1.min, c2.max AS max2, c2.avg AS avg2, c2.min AS min2 from datatype_cardinalities1 c1 JOIN datatype_cardinalities2 c2 ON c1.AKP = c2.AKP")
+		.write().option("sep", ";").csv(output_dir + "/spark-datatype-cardinalities");	
+	}	
+	
 
 	public void calculateObjectCardinalities() {
 		Dataset<Row> grezzo = session.sql("SELECT " + 
@@ -188,16 +216,15 @@ public class Summarization {
 		.withColumn("AKP", concat(col("subj_Type"), lit("##"),col("predicate"), lit("##"), col("obj_Type")) );
 		
 		grezzo.groupBy("subject", "AKP").agg(count("subject").alias("count")).
-		groupBy("AKP").agg(max("count").alias("max"), round(avg("count")).alias("avg"), min("count").alias("min"))
+		groupBy("AKP").agg(max("count").alias("max"), round(avg("count")).cast("integer").alias("avg"), min("count").alias("min"))
 		.createOrReplaceTempView("object_cardinalities2");
 		
 		grezzo.groupBy("object", "AKP").agg(count("object").alias("count")).
-		groupBy("AKP").agg(max("count").alias("max"), round(avg("count")).alias("avg"), min("count").alias("min"))
+		groupBy("AKP").agg(max("count").alias("max"), round(avg("count")).cast("integer").alias("avg"), min("count").alias("min"))
 		.createOrReplaceTempView("object_cardinalities1");
 		
 		session.sql("SELECT c1.AKP, c1.max, c1.avg, c1.min, c2.max AS max2, c2.avg AS avg2, c2.min AS min2 from object_cardinalities1 c1 JOIN object_cardinalities2 c2 ON c1.AKP = c2.AKP")
-		.write().option("sep", ";").csv(output_dir + "/spark-object-cardinalities");
-		
+		.write().option("sep", ";").csv(output_dir + "/spark-object-cardinalities");	
 	}	
 	
 	/*-------------------------------------------- FOR DEBUG -----------------------------------------*/
