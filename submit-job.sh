@@ -15,4 +15,4 @@ echo "output: $output"
 
 cmd="spark2-submit --class it.unimib.disco.abstat.distributed.application.Summarization --master yarn --deploy-mode cluster --files $ontology $jar yarn-cluster $dataset $ont_name $output"
 eval $cmd
-
+echo "distributed summarization done"
